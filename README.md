@@ -149,6 +149,29 @@
 
 ---
 
+## 🚂 Deploying on Railway
+
+Railway serves the app from the domain root, so the web installer skips its subdirectory check automatically when it detects Railway (or when `RX_ALLOW_ROOT_INSTALL=1` is set). Railway containers have an ephemeral filesystem, so values the installer writes into `config.php` are lost on every redeploy. Set the following service variables so the configuration is read from the environment instead:
+
+| Variable | Purpose |
+| :--- | :--- |
+| `DB_HOST` / `MYSQLHOST` | Database host |
+| `DB_NAME` / `MYSQLDATABASE` | Database name |
+| `DB_USER` / `MYSQLUSER` | Database user |
+| `DB_PASSWORD` / `MYSQLPASSWORD` | Database password |
+| `DB_PORT` | Database port (only needed if it is not 3306) |
+| `BOT_TOKEN` | Telegram bot token |
+| `ADMIN_ID` | Numeric Telegram ID of the admin |
+| `BOT_USERNAME` | Bot username |
+| `APP_DOMAIN` | Public domain without scheme (falls back to `RAILWAY_PUBLIC_DOMAIN`) |
+| `RX_ALLOW_ROOT_INSTALL` | Set to `1` to allow running the installer from the domain root on any host |
+
+The database variables can reference the MySQL service, for example `DB_HOST=${{MySQL.MYSQLHOST}}`, `DB_NAME=${{MySQL.MYSQLDATABASE}}`, `DB_USER=${{MySQL.MYSQLUSER}}` and `DB_PASSWORD=${{MySQL.MYSQLPASSWORD}}`.
+
+Run the installer once at `/installer/` to create the tables, the admin account and the webhook. Afterwards set the variables above so the configuration survives redeploys.
+
+---
+
 ## 💸 حمایت مالی (Donate)
 
 توسعه، ریفکتور و پشتیبانی رایگان این پروژه نیازمند صرف وقت و هزینه است. اگر پروژه فاکسیما برای شما مفید واقع شده، می‌توانید با حمایت مالی به تداوم و ارتقای آن کمک کنید:

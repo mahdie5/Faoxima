@@ -14,6 +14,24 @@ $redis_port     = '6379';
 $redis_password = '';
 $redis_database = '0';
 
+if (!function_exists('rx_env')) {
+    function rx_env(array $names, $default) {
+        foreach ($names as $n) { $v = getenv($n); if ($v !== false && $v !== '') { return $v; } }
+        return $default;
+    }
+}
+$dbname     = rx_env(['DB_NAME', 'MYSQLDATABASE'], $dbname);
+$usernamedb = rx_env(['DB_USER', 'MYSQLUSER'], $usernamedb);
+$passworddb = rx_env(['DB_PASSWORD', 'MYSQLPASSWORD'], $passworddb);
+$dbhost     = rx_env(['DB_HOST'], $dbhost);
+$rxDbPort   = rx_env(['DB_PORT', 'MYSQLPORT'], '');
+if ($dbhost === '' && getenv('MYSQLHOST')) { $dbhost = getenv('MYSQLHOST'); }
+// A non-default port is passed separately to mysqli and appended to the PDO DSN.
+$GLOBALS['dbport'] = ($rxDbPort !== '' && $rxDbPort !== '3306' && ctype_digit((string) $rxDbPort)) ? (int) $rxDbPort : null;
+$redis_host     = rx_env(['REDIS_HOST', 'REDISHOST'], $redis_host);
+$redis_port     = rx_env(['REDIS_PORT', 'REDISPORT'], $redis_port);
+$redis_password = rx_env(['REDIS_PASSWORD', 'REDISPASSWORD'], $redis_password);
+
 $connect = null;
 $pdo     = null;
 $dsn     = '';
@@ -93,7 +111,7 @@ if (!function_exists('rx_connect_pdo')) {
 }
 
 if (!function_exists('rx_connect_mysqli')) {
-    function rx_connect_mysqli($host, $username, $password, $database)
+    function rx_connect_mysqli($host, $username, $password, $database, $port = null)
     {
         if (function_exists('mysqli_report')) {
             @mysqli_report(MYSQLI_REPORT_OFF);
@@ -101,7 +119,9 @@ if (!function_exists('rx_connect_mysqli')) {
         $retries = rx_db_connect_retries();
         $attempt = 0;
         while (true) {
-            $conn = @mysqli_connect($host, $username, $password, $database);
+            $conn = $port !== null && (int) $port > 0
+                ? @mysqli_connect($host, $username, $password, $database, (int) $port)
+                : @mysqli_connect($host, $username, $password, $database);
             if ($conn instanceof mysqli) {
                 return $conn;
             }
@@ -131,7 +151,7 @@ if (!function_exists('getMysqliConnection')) {
             return null;
         }
         $host = $GLOBALS['dbhost'] ?? '';
-        $conn = rx_connect_mysqli($host !== '' ? $host : 'localhost', $user, $pass, $db);
+        $conn = rx_connect_mysqli($host !== '' ? $host : 'localhost', $user, $pass, $db, $GLOBALS['dbport'] ?? null);
         if ($conn instanceof mysqli) {
             @mysqli_set_charset($conn, 'utf8mb4');
             $GLOBALS['connect'] = $conn;
@@ -284,7 +304,7 @@ if ($dbname !== '' && $usernamedb !== '') {
     }
     $dbhostResolved = $dbhost !== '' ? $dbhost : 'localhost';
     if (!defined('FAOXIMA_LAZY_MYSQLI') || FAOXIMA_LAZY_MYSQLI !== true) {
-        $connect = rx_connect_mysqli($dbhostResolved, $usernamedb, $passworddb, $dbname);
+        $connect = rx_connect_mysqli($dbhostResolved, $usernamedb, $passworddb, $dbname, $GLOBALS['dbport'] ?? null);
         if ($connect instanceof mysqli) {
             @mysqli_set_charset($connect, 'utf8mb4');
             @mysqli_query($connect, "SET time_zone = '+03:30'");
@@ -296,7 +316,9 @@ if ($dbname !== '' && $usernamedb !== '') {
         $connect = null;
     }
 
-    $dsn = 'mysql:host=' . $dbhostResolved . ';dbname=' . $dbname . ';charset=utf8mb4';
+    $dsn = 'mysql:host=' . $dbhostResolved
+        . (!empty($GLOBALS['dbport']) ? ';port=' . (int) $GLOBALS['dbport'] : '')
+        . ';dbname=' . $dbname . ';charset=utf8mb4';
     try {
         $pdo = rx_connect_pdo($dsn, $usernamedb, $passworddb, $options);
     } catch (\PDOException $rxPdoError) {
@@ -322,6 +344,10 @@ $domainhosts                = '';
 $usernamebot                = '';
 $telegramCurlTimeout        = 10;
 $telegramStrictIpValidation = true;
+$APIKEY      = rx_env(['BOT_TOKEN', 'TELEGRAM_BOT_TOKEN'], $APIKEY);
+$adminnumber = rx_env(['ADMIN_ID'], $adminnumber);
+$usernamebot = rx_env(['BOT_USERNAME'], $usernamebot);
+$domainhosts = rx_env(['APP_DOMAIN', 'RAILWAY_PUBLIC_DOMAIN'], $domainhosts);
 $domainhosts                = rtrim(preg_replace('#^https?://#', '', $domainhosts), '/');
 
 if (!defined('APP_ORIGIN') && $domainhosts !== '') {
