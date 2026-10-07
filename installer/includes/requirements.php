@@ -95,8 +95,24 @@ function rx_check_project_files(string $rootDirectory): array
     return $results;
 }
 
+function rx_is_railway(): bool
+{
+    foreach (['RAILWAY_ENVIRONMENT', 'RAILWAY_ENVIRONMENT_NAME', 'RAILWAY_PROJECT_ID'] as $name) {
+        $value = getenv($name);
+        if ($value !== false && $value !== '') {
+            return true;
+        }
+    }
+    $override = getenv('RX_ALLOW_ROOT_INSTALL');
+    return is_string($override) && in_array(strtolower(trim($override)), ['1', 'true'], true);
+}
+
 function rx_project_subdirectory_depth(string $rootDirectory): array
 {
+    if (rx_is_railway()) {
+        return ['depth' => 1, 'path' => '/'];
+    }
+
     $scriptDir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
     $projectDir = rtrim($scriptDir, '/');
     $lastSlash = strrpos($projectDir, '/');
@@ -129,7 +145,9 @@ function rx_check_subdirectory_enforcement(string $rootDirectory): array
         'id' => 'subdirectory_depth',
         'label' => 'نصب پروژه درون ساب‌دایرکتوری',
         'detail' => $ok
-            ? "مسیر پروژه: {$info['path']}"
+            ? (rx_is_railway()
+                ? 'اجرا روی Railway یا فعال بودن RX_ALLOW_ROOT_INSTALL؛ محدودیت ساب‌دایرکتوری نادیده گرفته شد'
+                : "مسیر پروژه: {$info['path']}")
             : 'پوشه پروژه مستقیماً روی ریشه اصلی دامنه (public_html) قرار دارد',
         'ok' => $ok,
         'critical' => true,
